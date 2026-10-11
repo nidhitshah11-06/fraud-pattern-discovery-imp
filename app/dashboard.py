@@ -85,8 +85,6 @@ def prepare_scores(df):
     if df is None:
         return None, notes
 
-    df = df.copy()
-
     score_col = find_col(df, ["risk_score", "fraud_risk_score", "score"])
     if score_col is None:
         notes.append("No risk_score column was found.")
@@ -686,7 +684,7 @@ with tab4:
             "fraud_risk_scores.csv in the outputs folder."
         )
     else:
-        data = source.copy()
+        data = source
         has_label = "isFraud" in data.columns
 
         f1, f2 = st.columns(2)
@@ -748,7 +746,7 @@ with tab4:
 
         st.download_button(
             "Download filtered results (CSV)",
-            data.to_csv(index=False).encode("utf-8"),
+            data=lambda: data.to_csv(index=False).encode("utf-8"),
             file_name="filtered_high_risk_transactions.csv",
             mime="text/csv"
         )
