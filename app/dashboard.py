@@ -643,9 +643,7 @@ with tab3:
                 "catch."
             )
 
-            ordered_all = risk_scores.sort_values(
-                "risk_score", ascending=False
-            )
+            ordered_all = risk_scores.nlargest(5000, "risk_score")
             total_fraud = int(risk_scores["isFraud"].sum())
 
             budget_rows = []
@@ -684,26 +682,29 @@ with tab4:
             "fraud_risk_scores.csv in the outputs folder."
         )
     else:
-        data = source
-        has_label = "isFraud" in data.columns
+        has_label = "isFraud" in source.columns
+        mask = np.ones(len(source), dtype=bool)
 
         f1, f2 = st.columns(2)
 
         with f1:
-            levels = [l for l in LEVEL_ORDER if l in data["risk_level"].unique()]
+            levels = [
+                level for level in LEVEL_ORDER
+                if level in source["risk_level"].unique()
+            ]
             default_levels = ["High"] if "High" in levels else levels
             chosen_levels = st.multiselect(
                 "Risk level", levels, default=default_levels
             )
-            data = data[data["risk_level"].isin(chosen_levels)]
+            mask &= source["risk_level"].isin(chosen_levels).to_numpy()
 
         with f2:
-            if "type" in data.columns:
-                types = sorted(data["type"].astype(str).unique())
+            if "type" in source.columns:
+                types = sorted(source["type"].astype(str).unique())
                 chosen_types = st.multiselect(
                     "Transaction type", types, default=types
                 )
-                data = data[data["type"].astype(str).isin(chosen_types)]
+                mask &= source["type"].astype(str).isin(chosen_types).to_numpy()
 
         if has_label:
             outcome = st.radio(
@@ -716,28 +717,43 @@ with tab4:
                 horizontal=True
             )
             if outcome.startswith("Caught"):
-                data = data[data["isFraud"] == 1]
+                mask &= source["isFraud"].eq(1).to_numpy()
             elif outcome.startswith("False"):
-                data = data[data["isFraud"] == 0]
+                mask &= source["isFraud"].eq(0).to_numpy()
 
         search = st.text_input("Search any column (text match)")
         if search:
-            mask = data.astype(str).apply(
+            search_mask = source.astype(str).apply(
                 lambda col: col.str.contains(search, case=False, na=False)
             ).any(axis=1)
-            data = data[mask]
+            mask &= search_mask.to_numpy()
 
         n_rows = 100
 
-        summary = f"**{len(data):,}** transactions match the filters."
-        if has_label and len(data):
+        selected_rows = np.flatnonzero(mask)
+        summary = f"**{len(selected_rows):,}** transactions match the filters."
+        if has_label and len(selected_rows):
+            selected_fraud = source["isFraud"].to_numpy()[selected_rows]
             summary += (
-                f" Of these, **{int(data['isFraud'].sum()):,}** are "
-                f"actual fraud ({data['isFraud'].mean() * 100:.1f}%)."
+                f" Of these, **{int(selected_fraud.sum()):,}** are "
+                f"actual fraud ({selected_fraud.mean() * 100:.1f}%)."
             )
         st.write(summary)
 
-        display = data.sort_values("risk_score", ascending=False).head(n_rows)
+        scores_for_selection = source["risk_score"].to_numpy()[selected_rows]
+        top_count = min(n_rows, len(selected_rows))
+        if top_count:
+            top_positions = np.argpartition(
+                scores_for_selection, -top_count
+            )[-top_count:]
+            top_rows = selected_rows[
+                top_positions[
+                    np.argsort(scores_for_selection[top_positions])[::-1]
+                ]
+            ]
+            display = source.iloc[top_rows]
+        else:
+            display = source.iloc[[]]
         if has_label:
             display = display.rename(
                 columns={"isFraud": "isFraud (actual label)"}
@@ -746,7 +762,7 @@ with tab4:
 
         st.download_button(
             "Download filtered results (CSV)",
-            data=lambda: data.to_csv(index=False).encode("utf-8"),
+            data=lambda: source.loc[mask].to_csv(index=False).encode("utf-8"),
             file_name="filtered_high_risk_transactions.csv",
             mime="text/csv"
         )
