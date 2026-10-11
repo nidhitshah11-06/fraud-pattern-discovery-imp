@@ -1,0 +1,4 @@
+model,average_precision,baseline_fraud_rate
+Rule-based risk score (ours),0.9898,0.003
+Logistic regression (same binned features),0.9933,0.003
+Gradient boosting (raw numeric features),0.9276,0.003

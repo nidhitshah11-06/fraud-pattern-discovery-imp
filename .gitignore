@@ -1,0 +1,23 @@
+# Python virtual environment
+.venv/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+
+# Jupyter Notebook temporary files
+.ipynb_checkpoints/
+
+# Raw dataset
+data/*.csv
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# VS Code settings
+.vscode/
+
+# Python packaging/cache
+.pytest_cache/
+.mypy_cache/
