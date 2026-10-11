@@ -56,7 +56,11 @@ def load_csv(path_str):
     """Return (dataframe or None, error message or None)."""
     path = Path(path_str)
     if not path.exists():
-        return None, "file not found"
+        compressed_path = Path(f"{path}.gz")
+        if compressed_path.exists():
+            path = compressed_path
+        else:
+            return None, "file not found"
     try:
         return pd.read_csv(path), None
     except Exception as exc:
